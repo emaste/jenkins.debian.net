@@ -102,6 +102,7 @@ jenkins ALL= NOPASSWD: /usr/bin/make -j ? buildworld, \
 	/usr/bin/make -j ? installworld, \
 	/usr/bin/make -j ? installkernel, \
 	/usr/bin/make -j ? distribution, \
+	/usr/bin/make -j ? -DBATCH -C ? all, \
 	/bin/rm -rf /usr/src, \
 	/bin/rm -r /srv/reproducible-results/* /srv/reproducible-results/*.tar.xz, \
 	/bin/chflags -R noschg /srv/reproducible-results/*, \

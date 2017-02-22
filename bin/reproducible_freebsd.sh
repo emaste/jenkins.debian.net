@@ -94,10 +94,12 @@ declare -A FREEBSD
 declare -A FREEBSD_VERSION
 declare -A FILES_HTML
 for FREEBSD_TARGET in ${FREEBSD_TARGETS} ;do
+	FREEBSD_PORTS_TARGET=master
 	set -e
 	RSSH="ssh -o Batchmode=yes freebsd-jenkins.debian.net"
 	RSCP="scp -r freebsd-jenkins.debian.net"
 	TMPBUILDDIR=/usr/src
+	PORTSDIR=/usr/ports
 	$RSSH 'sudo rm -rf /usr/src ; sudo mkdir /usr/src ; sudo chown jenkins /usr/src'  ### this is tmpfs on linux, we should move this to tmpfs on FreeBSD too
 	TMPDIR=$($RSSH 'TMPDIR=/srv/reproducible-results mktemp -d -t rbuild-freebsd-XXXXXXXX')  # used to compare results
 	DATE=$(date -u +'%Y-%m-%d')
@@ -109,12 +111,16 @@ for FREEBSD_TARGET in ${FREEBSD_TARGETS} ;do
 	$RSSH freebsd-version
 
 	echo "============================================================================="
-	echo "$(date -u) - Cloning FreeBSD git repository."
+	echo "$(date -u) - Cloning FreeBSD git repositories."
 	echo "============================================================================="
 	$RSSH git clone --depth 1 --branch $FREEBSD_TARGET https://github.com/freebsd/freebsd.git $TMPBUILDDIR
+	$RSSH git clone --depth 1 --branch $FREEBSD_PORTS_TARGET https://github.com/freebsd/freebsd-ports.git $PORTSDIR
 	FREEBSD[$FREEBSD_TARGET]=$($RSSH "cd $TMPBUILDDIR ; git log -1")
 	FREEBSD_VERSION[$FREEBSD_TARGET]=$($RSSH "cd $TMPBUILDDIR ; git describe --always")
+	FREEBSD_PORTS[$FREEBSD_PORTS_TARGET]=$($RSSH "cd $PORTSDIR ; git log -1")
+	FREEBSD_PORTS_VERSION[$FREEBSD_PORTS_TARGET]=$($RSSH "cd $PORTSDIR ; git describe --always")
 	echo "This is FreeBSD branch $FREEBSD_TARGET at ${FREEBSD_VERSION[$FREEBSD_TARGET]}."
+	echo "FreeBSD ports branch $FREEBSD_PORTS_TARGET at ${FREEBSD_PORTS_VERSION[$FREEBSD_PORTS_TARGET]}."
 	echo
 	$RSSH "cd $TMPBUILDDIR ; git log -1"
 	TARGET_NAME=$(echo "freebsd_${FREEBSD_TARGET}_git${FREEBSD_VERSION[$FREEBSD_TARGET]}" | sed "s#/#-#g")
@@ -131,7 +137,8 @@ for FREEBSD_TARGET in ${FREEBSD_TARGETS} ;do
 	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG SOURCE_DATE_EPOCH=$START sudo make -j $NUM_CPU PKG_VERSION=current packages" && \
 	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG DESTDIR=$TMPDIR sudo make -j $NUM_CPU installworld" && \
 	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG DESTDIR=$TMPDIR sudo make -j $NUM_CPU installkernel" && \
-	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG DESTDIR=$TMPDIR sudo make -j $NUM_CPU distribution" ) ; then
+	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG DESTDIR=$TMPDIR sudo make -j $NUM_CPU distribution" && \
+	  $RSSH "cd $PORTSDIR; TZ=$TZ LANG=$LANG DESTDIR=$TMPDIR sudo make -j $NUM_CPU -DBATCH -C shells/zsh all" ) ; then
 		# save results in b1
 		save_freebsd_results b1
 	else
@@ -162,7 +169,8 @@ for FREEBSD_TARGET in ${FREEBSD_TARGETS} ;do
 	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG LC_ALL=$LC_ALL SOURCE_DATE_EPOCH=$START sudo make -j $NEW_NUM_CPU PKG_VERSION=current packages" && \
 	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG LC_ALL=$LC_ALL DESTDIR=$TMPDIR sudo make -j $NEW_NUM_CPU installworld" && \
 	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG LC_ALL=$LC_ALL DESTDIR=$TMPDIR sudo make -j $NEW_NUM_CPU installkernel" && \
-	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG LC_ALL=$LC_ALL DESTDIR=$TMPDIR sudo make -j $NEW_NUM_CPU distribution" ) ; then
+	  $RSSH "cd $TMPBUILDDIR ; TZ=$TZ LANG=$LANG LC_ALL=$LC_ALL DESTDIR=$TMPDIR sudo make -j $NEW_NUM_CPU distribution" && \
+	  $RSSH "cd $PORTSDIR; TZ=$TZ LANG=$LANG LC_ALL=$LC_ALL DESTDIR=$TMPDIR sudo make -j $NUM_CPU -DBATCH -C shells/zsh all" ) ; then
 		# save results in b2
 		save_freebsd_results b2
 	else
