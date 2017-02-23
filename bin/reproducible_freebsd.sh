@@ -31,6 +31,8 @@ save_freebsd_results() {
 	mkdir -p $TMPDIR/$RUN/
 	# copy results over
 	DUMMY_DATE="$(date -u +'%Y-%m-%d')T00:00:00Z"
+	# repo/*/latest is a symlink to the actual repo dir, delete it to avoid doubled comparisons
+	$RSSH "sudo rm /usr/obj/usr/src/repo/*/latest"
 	$RSSH "sudo find $TMPDIR -newer $TMPDIR -exec touch -d '$DUMMY_DATE' {} \;"
 	$RSSH "sudo find $TMPDIR -print0 | LC_ALL=C sort -z | sudo tar --no-recursion --null -T - -cJf $TMPDIR.tar.xz"
 	$RSCP:$TMPDIR.tar.xz $TMPDIR/$RUN/$TARGET_NAME.tar.xz
